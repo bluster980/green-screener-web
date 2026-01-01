@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-const constraints = {
+// Default to rear/environment camera (for Android)
+const getConstraints = (facingMode) => ({
   video: {
-    facingMode: 'user',
+    facingMode: facingMode,
   },
   audio: false,
-};
+});
 
 // Color analysis utilities
 const ColorAnalyzer = {
@@ -64,6 +65,8 @@ function App() {
   const [colorStats, setColorStats] = useState(null);
   const [spillAmount, setSpillAmount] = useState(0);
   const [sensitivity, setSensitivity] = useState(50);
+  const [facingMode, setFacingMode] = useState('environment'); // Default to rear camera
+  const streamRef = useRef(null);
 
   // Camera initialization
   useEffect(() => {
@@ -71,16 +74,26 @@ function App() {
 
     async function initCamera() {
       try {
+        // Stop existing stream
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+        }
+
+        const constraints = getConstraints(facingMode);
         stream = await navigator.mediaDevices.getUserMedia(constraints);
+        streamRef.current = stream;
+        
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
           setHasCamera(true);
           setRunning(true);
+          setError('');
         }
       } catch (err) {
         console.error(err);
         setError('Camera access denied or not available.');
+        setHasCamera(false);
       }
     }
 
@@ -91,11 +104,11 @@ function App() {
     }
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((t) => t.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
       }
     };
-  }, []);
+  }, [facingMode]);
 
   // Handle background image upload
   const handleBgImageUpload = (e) => {
@@ -387,6 +400,16 @@ function App() {
               onClick={() => setRunning((v) => !v)}
             >
               {running ? '⏸ Pause' : '▶ Resume'}
+            </button>
+          </div>
+
+          <div className="control-group">
+            <h3>Camera</h3>
+            <button 
+              className={`btn ${facingMode === 'environment' ? 'active' : ''}`}
+              onClick={() => setFacingMode(facingMode === 'environment' ? 'user' : 'environment')}
+            >
+              {facingMode === 'environment' ? '📷 Rear' : '🤳 Front'}
             </button>
           </div>
 
